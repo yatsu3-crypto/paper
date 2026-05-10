@@ -1,0 +1,1237 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>論文執筆支援 — 漢方・東洋医学</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+JP:wght@400;500;700&family=Shippori+Mincho:wght@500;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#f5f1e8;
+  --paper:#fbf8f1;
+  --ink:#1a1a1a;
+  --ink-soft:#3d3d3d;
+  --ink-muted:#7a7264;
+  --line:#d9d1bf;
+  --line-soft:#e8e1cf;
+  --accent:#8b2c1f;
+  --accent-soft:#c5704a;
+  --tag-bg:#e8ddc4;
+  --highlight:#f0e6c8;
+  --serif:'Noto Serif JP','Shippori Mincho',serif;
+  --display:'Shippori Mincho',serif;
+  --mono:'JetBrains Mono',monospace;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{
+  font-family:var(--serif);
+  background:var(--bg);
+  color:var(--ink);
+  font-size:14px;
+  line-height:1.7;
+  min-height:100vh;
+  background-image:
+    radial-gradient(circle at 20% 80%, rgba(139,44,31,0.03) 0%, transparent 50%),
+    radial-gradient(circle at 80% 20%, rgba(197,112,74,0.04) 0%, transparent 50%);
+}
+header{
+  background:var(--paper);
+  border-bottom:1px solid var(--line);
+  padding:18px 28px;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  position:sticky;
+  top:0;
+  z-index:100;
+  box-shadow:0 1px 0 rgba(0,0,0,0.02);
+}
+.logo{
+  display:flex;
+  align-items:baseline;
+  gap:14px;
+}
+.logo h1{
+  font-family:var(--display);
+  font-weight:700;
+  font-size:22px;
+  letter-spacing:0.05em;
+}
+.logo .sub{
+  font-size:11px;
+  color:var(--ink-muted);
+  letter-spacing:0.15em;
+}
+.logo .mark{
+  display:inline-block;
+  width:8px;height:8px;
+  background:var(--accent);
+  border-radius:50%;
+  margin-right:6px;
+  vertical-align:middle;
+}
+nav{
+  display:flex;
+  gap:4px;
+}
+nav button{
+  background:none;
+  border:none;
+  font-family:var(--serif);
+  font-size:13px;
+  padding:8px 16px;
+  cursor:pointer;
+  color:var(--ink-soft);
+  border-bottom:2px solid transparent;
+  transition:all 0.2s;
+  font-weight:500;
+}
+nav button:hover{color:var(--accent)}
+nav button.active{
+  color:var(--accent);
+  border-bottom-color:var(--accent);
+}
+main{
+  max-width:1400px;
+  margin:0 auto;
+  padding:24px 28px;
+}
+.view{display:none}
+.view.active{display:block}
+
+/* === Papers View === */
+.toolbar{
+  display:flex;
+  gap:12px;
+  margin-bottom:20px;
+  align-items:center;
+  flex-wrap:wrap;
+}
+.btn{
+  background:var(--ink);
+  color:var(--paper);
+  border:none;
+  padding:9px 18px;
+  font-family:var(--serif);
+  font-size:13px;
+  cursor:pointer;
+  font-weight:500;
+  transition:all 0.2s;
+  letter-spacing:0.03em;
+}
+.btn:hover{background:var(--accent)}
+.btn-outline{
+  background:transparent;
+  color:var(--ink);
+  border:1px solid var(--line);
+}
+.btn-outline:hover{
+  background:var(--ink);
+  color:var(--paper);
+  border-color:var(--ink);
+}
+.btn-danger{background:#8b2c1f}
+.btn-danger:hover{background:#6d2218}
+.btn-sm{padding:5px 12px;font-size:12px}
+input[type=text], input[type=number], textarea, select{
+  font-family:var(--serif);
+  font-size:13px;
+  border:1px solid var(--line);
+  background:var(--paper);
+  padding:8px 12px;
+  color:var(--ink);
+  width:100%;
+  outline:none;
+  transition:border-color 0.2s;
+}
+input:focus, textarea:focus, select:focus{border-color:var(--accent)}
+textarea{resize:vertical;min-height:80px;line-height:1.8}
+.search-box{
+  flex:1;
+  min-width:200px;
+  max-width:400px;
+}
+.tag-filter{
+  display:flex;
+  gap:6px;
+  flex-wrap:wrap;
+  margin-bottom:20px;
+}
+.tag{
+  display:inline-block;
+  background:var(--tag-bg);
+  color:var(--ink-soft);
+  padding:3px 10px;
+  font-size:11px;
+  border-radius:2px;
+  cursor:pointer;
+  letter-spacing:0.05em;
+  transition:all 0.2s;
+  border:1px solid transparent;
+}
+.tag:hover{border-color:var(--accent-soft)}
+.tag.active{
+  background:var(--accent);
+  color:var(--paper);
+}
+.papers-grid{
+  display:grid;
+  grid-template-columns:repeat(auto-fill,minmax(380px,1fr));
+  gap:16px;
+}
+.paper-card{
+  background:var(--paper);
+  border:1px solid var(--line);
+  padding:18px 20px;
+  position:relative;
+  transition:all 0.2s;
+  cursor:pointer;
+}
+.paper-card:hover{
+  border-color:var(--accent-soft);
+  box-shadow:0 4px 16px rgba(0,0,0,0.04);
+}
+.paper-card .ref-num{
+  position:absolute;
+  top:14px;right:16px;
+  font-family:var(--mono);
+  font-size:10px;
+  color:var(--ink-muted);
+  background:var(--bg);
+  padding:2px 6px;
+}
+.paper-card h3{
+  font-family:var(--display);
+  font-size:15px;
+  line-height:1.5;
+  margin-bottom:8px;
+  font-weight:700;
+  padding-right:50px;
+}
+.paper-card .authors{
+  font-size:12px;
+  color:var(--ink-soft);
+  margin-bottom:4px;
+  font-style:italic;
+}
+.paper-card .journal{
+  font-size:11px;
+  color:var(--ink-muted);
+  margin-bottom:10px;
+  letter-spacing:0.02em;
+}
+.paper-card .summary{
+  font-size:12.5px;
+  color:var(--ink-soft);
+  line-height:1.7;
+  margin:10px 0;
+  max-height:80px;
+  overflow:hidden;
+  position:relative;
+}
+.paper-card .summary.expanded{max-height:none}
+.paper-card .tags-list{
+  display:flex;
+  gap:4px;
+  flex-wrap:wrap;
+  margin-top:10px;
+  padding-top:10px;
+  border-top:1px dashed var(--line-soft);
+}
+.paper-card .tags-list .tag{font-size:10px;padding:2px 8px}
+.empty{
+  text-align:center;
+  padding:80px 20px;
+  color:var(--ink-muted);
+  font-style:italic;
+}
+.empty .ornament{
+  font-family:var(--display);
+  font-size:32px;
+  color:var(--line);
+  margin-bottom:16px;
+}
+
+/* === Modal === */
+.modal-bg{
+  display:none;
+  position:fixed;
+  inset:0;
+  background:rgba(26,26,26,0.5);
+  z-index:200;
+  align-items:flex-start;
+  justify-content:center;
+  padding:40px 20px;
+  overflow-y:auto;
+}
+.modal-bg.show{display:flex}
+.modal{
+  background:var(--paper);
+  width:100%;
+  max-width:720px;
+  padding:32px 36px;
+  border:1px solid var(--line);
+  box-shadow:0 20px 60px rgba(0,0,0,0.15);
+  position:relative;
+}
+.modal h2{
+  font-family:var(--display);
+  font-size:20px;
+  margin-bottom:24px;
+  padding-bottom:14px;
+  border-bottom:1px solid var(--line);
+  letter-spacing:0.05em;
+}
+.modal h2 .accent{color:var(--accent)}
+.field{margin-bottom:16px}
+.field label{
+  display:block;
+  font-size:11px;
+  color:var(--ink-muted);
+  letter-spacing:0.1em;
+  margin-bottom:5px;
+  font-weight:500;
+}
+.field-row{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:14px;
+}
+.field-row-3{
+  display:grid;
+  grid-template-columns:2fr 1fr 1fr;
+  gap:14px;
+}
+.modal-actions{
+  display:flex;
+  gap:10px;
+  justify-content:flex-end;
+  margin-top:24px;
+  padding-top:18px;
+  border-top:1px solid var(--line-soft);
+}
+.close-btn{
+  position:absolute;
+  top:18px;right:18px;
+  background:none;
+  border:none;
+  font-size:22px;
+  cursor:pointer;
+  color:var(--ink-muted);
+  width:30px;height:30px;
+  line-height:1;
+}
+.close-btn:hover{color:var(--accent)}
+
+/* === Writing View === */
+.writing-layout{
+  display:grid;
+  grid-template-columns:240px 1fr 320px;
+  gap:20px;
+  min-height:calc(100vh - 200px);
+}
+.sections-panel{
+  background:var(--paper);
+  border:1px solid var(--line);
+  padding:18px;
+}
+.sections-panel h3{
+  font-family:var(--display);
+  font-size:13px;
+  letter-spacing:0.1em;
+  margin-bottom:14px;
+  padding-bottom:10px;
+  border-bottom:1px solid var(--line);
+  color:var(--ink-muted);
+}
+.section-item{
+  padding:9px 12px;
+  cursor:pointer;
+  font-size:13px;
+  border-left:2px solid transparent;
+  margin-bottom:2px;
+  transition:all 0.15s;
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  gap:6px;
+}
+.section-item:hover{background:var(--bg)}
+.section-item.active{
+  background:var(--bg);
+  border-left-color:var(--accent);
+  font-weight:500;
+}
+.section-item .del{
+  opacity:0;
+  color:var(--ink-muted);
+  font-size:14px;
+  transition:opacity 0.2s;
+}
+.section-item:hover .del{opacity:0.6}
+.section-item .del:hover{color:var(--accent);opacity:1}
+.add-section{
+  display:flex;
+  gap:6px;
+  margin-top:10px;
+}
+.add-section input{font-size:12px;padding:6px 10px}
+.add-section button{
+  background:var(--ink);
+  color:var(--paper);
+  border:none;
+  padding:6px 12px;
+  font-size:16px;
+  cursor:pointer;
+  line-height:1;
+}
+.editor-panel{
+  background:var(--paper);
+  border:1px solid var(--line);
+  padding:28px 36px;
+  display:flex;
+  flex-direction:column;
+}
+.editor-panel h2{
+  font-family:var(--display);
+  font-size:22px;
+  margin-bottom:6px;
+  letter-spacing:0.03em;
+}
+.editor-panel .word-count{
+  font-size:11px;
+  color:var(--ink-muted);
+  margin-bottom:18px;
+  font-family:var(--mono);
+  letter-spacing:0.05em;
+}
+.editor{
+  flex:1;
+  font-family:var(--serif);
+  font-size:15px;
+  line-height:2;
+  border:none;
+  background:transparent;
+  padding:0;
+  min-height:500px;
+  resize:none;
+}
+.refs-panel{
+  background:var(--paper);
+  border:1px solid var(--line);
+  padding:18px;
+  max-height:calc(100vh - 200px);
+  overflow-y:auto;
+}
+.refs-panel h3{
+  font-family:var(--display);
+  font-size:13px;
+  letter-spacing:0.1em;
+  margin-bottom:14px;
+  padding-bottom:10px;
+  border-bottom:1px solid var(--line);
+  color:var(--ink-muted);
+}
+.refs-panel .ref-search{
+  font-size:12px;
+  padding:6px 10px;
+  margin-bottom:12px;
+}
+.ref-item{
+  padding:10px 12px;
+  margin-bottom:8px;
+  background:var(--bg);
+  border-left:2px solid var(--line);
+  font-size:12px;
+  cursor:pointer;
+  transition:all 0.15s;
+  position:relative;
+}
+.ref-item:hover{border-left-color:var(--accent)}
+.ref-item .ref-no{
+  font-family:var(--mono);
+  color:var(--accent);
+  font-weight:500;
+  margin-right:6px;
+}
+.ref-item .ref-title{
+  font-weight:500;
+  margin-bottom:3px;
+  line-height:1.5;
+}
+.ref-item .ref-meta{
+  font-size:10.5px;
+  color:var(--ink-muted);
+  font-style:italic;
+}
+.ref-item .insert-btn{
+  position:absolute;
+  top:8px;right:8px;
+  background:var(--accent);
+  color:var(--paper);
+  border:none;
+  font-size:9px;
+  padding:2px 6px;
+  cursor:pointer;
+  letter-spacing:0.05em;
+  opacity:0;
+  transition:opacity 0.2s;
+}
+.ref-item:hover .insert-btn{opacity:1}
+
+/* === Export View === */
+.export-content{
+  background:var(--paper);
+  border:1px solid var(--line);
+  padding:36px 44px;
+  max-width:900px;
+  margin:0 auto;
+  font-size:14px;
+  line-height:2;
+}
+.export-content h2{
+  font-family:var(--display);
+  font-size:22px;
+  margin-bottom:20px;
+  padding-bottom:12px;
+  border-bottom:1px solid var(--line);
+}
+.export-content h3{
+  font-family:var(--display);
+  font-size:17px;
+  margin-top:28px;
+  margin-bottom:12px;
+  color:var(--accent);
+  letter-spacing:0.05em;
+}
+.export-content .ref-list{
+  margin-top:30px;
+  padding-top:20px;
+  border-top:2px solid var(--ink);
+}
+.export-content .ref-list h3{color:var(--ink);margin-top:0}
+.export-content .ref-list ol{
+  padding-left:24px;
+  font-size:12.5px;
+  line-height:1.8;
+}
+.export-content .ref-list li{margin-bottom:8px}
+.export-content p{
+  margin-bottom:14px;
+  text-align:justify;
+}
+.export-content .cite{
+  color:var(--accent);
+  font-weight:500;
+  font-family:var(--mono);
+  font-size:0.85em;
+  vertical-align:super;
+}
+
+.tag-input-container{
+  display:flex;
+  gap:6px;
+  flex-wrap:wrap;
+  padding:8px 10px;
+  border:1px solid var(--line);
+  background:var(--paper);
+  min-height:40px;
+  align-items:center;
+}
+.tag-input-container .tag{cursor:default}
+.tag-input-container .tag .x{
+  margin-left:4px;
+  cursor:pointer;
+  font-weight:bold;
+}
+.tag-input-container input{
+  border:none;
+  flex:1;
+  min-width:100px;
+  padding:2px 4px;
+  background:transparent;
+}
+.tag-input-container input:focus{border:none}
+
+/* Stats bar */
+.stats{
+  display:flex;
+  gap:24px;
+  margin-bottom:20px;
+  padding:14px 18px;
+  background:var(--paper);
+  border-left:3px solid var(--accent);
+  font-size:12px;
+  color:var(--ink-soft);
+}
+.stats span strong{
+  font-family:var(--mono);
+  color:var(--accent);
+  font-size:14px;
+  margin-right:4px;
+}
+
+/* Highlight assignment */
+.assignment-section{
+  margin-top:14px;
+  padding-top:14px;
+  border-top:1px dashed var(--line-soft);
+}
+.assignment-section label{
+  display:block;
+  font-size:10.5px;
+  color:var(--ink-muted);
+  margin-bottom:5px;
+  letter-spacing:0.08em;
+}
+.section-chips{
+  display:flex;
+  gap:5px;
+  flex-wrap:wrap;
+}
+.section-chip{
+  padding:3px 9px;
+  font-size:10.5px;
+  background:var(--bg);
+  border:1px solid var(--line);
+  cursor:pointer;
+  transition:all 0.15s;
+}
+.section-chip.active{
+  background:var(--accent);
+  color:var(--paper);
+  border-color:var(--accent);
+}
+.section-chip:hover:not(.active){border-color:var(--accent-soft)}
+
+@media (max-width:1100px){
+  .writing-layout{grid-template-columns:200px 1fr}
+  .refs-panel{display:none}
+}
+@media (max-width:768px){
+  .writing-layout{grid-template-columns:1fr}
+  .sections-panel{order:1}
+  nav button{padding:8px 10px;font-size:12px}
+  .field-row,.field-row-3{grid-template-columns:1fr}
+}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">
+    <h1><span class="mark"></span>論文執筆支援</h1>
+    <span class="sub">KAMPO RESEARCH WRITER</span>
+  </div>
+  <nav>
+    <button class="nav-btn active" data-view="papers">論文メモ</button>
+    <button class="nav-btn" data-view="writing">執筆</button>
+    <button class="nav-btn" data-view="export">出力</button>
+  </nav>
+</header>
+
+<main>
+
+<!-- === Papers View === -->
+<div class="view active" id="view-papers">
+  <div class="stats">
+    <span><strong id="stat-count">0</strong>件の論文</span>
+    <span><strong id="stat-tags">0</strong>個のタグ</span>
+    <span><strong id="stat-sections">0</strong>個のセクション</span>
+  </div>
+  <div class="toolbar">
+    <button class="btn" onclick="openPaperModal()">+ 論文を追加</button>
+    <input type="text" class="search-box" id="search" placeholder="タイトル・著者・要点で検索…">
+    <button class="btn-outline btn" onclick="exportData()">バックアップ</button>
+    <button class="btn-outline btn" onclick="document.getElementById('import-file').click()">インポート</button>
+    <input type="file" id="import-file" style="display:none" accept=".json" onchange="importData(event)">
+  </div>
+  <div class="tag-filter" id="tag-filter"></div>
+  <div class="papers-grid" id="papers-grid"></div>
+</div>
+
+<!-- === Writing View === -->
+<div class="view" id="view-writing">
+  <div class="writing-layout">
+    <div class="sections-panel">
+      <h3>セクション</h3>
+      <div id="sections-list"></div>
+      <div class="add-section">
+        <input type="text" id="new-section" placeholder="新規セクション">
+        <button onclick="addSection()">+</button>
+      </div>
+    </div>
+    <div class="editor-panel">
+      <h2 id="current-section-title">セクションを選択</h2>
+      <div class="word-count" id="word-count">— characters</div>
+      <textarea class="editor" id="editor" placeholder="ここに本文を書いてください。右側の参考文献から「挿入」をクリックすると[1]形式で引用が入ります。"></textarea>
+    </div>
+    <div class="refs-panel">
+      <h3>参考文献</h3>
+      <input type="text" class="ref-search" id="ref-search" placeholder="絞り込み…">
+      <div id="refs-list"></div>
+    </div>
+  </div>
+</div>
+
+<!-- === Export View === -->
+<div class="view" id="view-export">
+  <div class="toolbar">
+    <button class="btn" onclick="exportMarkdown()">Markdown</button>
+    <button class="btn-outline btn" onclick="exportPlain()">プレーンテキスト</button>
+    <button class="btn-outline btn" onclick="exportBibtex()">BibTeX</button>
+    <button class="btn-outline btn" onclick="exportVancouver()">参考文献(Vancouver)</button>
+    <button class="btn-outline btn" onclick="window.print()">印刷</button>
+  </div>
+  <div class="export-content" id="export-content"></div>
+</div>
+
+</main>
+
+<!-- === Paper Modal === -->
+<div class="modal-bg" id="paper-modal">
+  <div class="modal">
+    <button class="close-btn" onclick="closePaperModal()">×</button>
+    <h2><span class="accent">|</span> <span id="modal-title">論文を追加</span></h2>
+    <input type="hidden" id="paper-id">
+    <div class="field">
+      <label>タイトル *</label>
+      <input type="text" id="f-title">
+    </div>
+    <div class="field-row">
+      <div class="field">
+        <label>著者 (例: 山本ら / Smith et al.)</label>
+        <input type="text" id="f-authors">
+      </div>
+      <div class="field">
+        <label>発表年</label>
+        <input type="number" id="f-year" placeholder="2024">
+      </div>
+    </div>
+    <div class="field-row-3">
+      <div class="field">
+        <label>雑誌名</label>
+        <input type="text" id="f-journal">
+      </div>
+      <div class="field">
+        <label>巻号</label>
+        <input type="text" id="f-volume" placeholder="45(3)">
+      </div>
+      <div class="field">
+        <label>頁</label>
+        <input type="text" id="f-pages" placeholder="123-130">
+      </div>
+    </div>
+    <div class="field-row">
+      <div class="field">
+        <label>DOI</label>
+        <input type="text" id="f-doi">
+      </div>
+      <div class="field">
+        <label>PMID</label>
+        <input type="text" id="f-pmid">
+      </div>
+    </div>
+    <div class="field">
+      <label>要点・抄録メモ *</label>
+      <textarea id="f-summary" rows="5" placeholder="重要な所見、結論、引用したい部分など"></textarea>
+    </div>
+    <div class="field">
+      <label>自分の考察・引用方針</label>
+      <textarea id="f-notes" rows="3" placeholder="自分の論文でどう位置づけるか"></textarea>
+    </div>
+    <div class="field">
+      <label>タグ (Enterで追加)</label>
+      <div class="tag-input-container" id="tag-input-container">
+        <input type="text" id="f-tag-input" placeholder="タグを入力…">
+      </div>
+    </div>
+    <div class="field assignment-section">
+      <label>振り分けセクション (該当箇所をクリック)</label>
+      <div class="section-chips" id="section-chips"></div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn-outline btn btn-danger" id="delete-btn" onclick="deletePaper()" style="display:none">削除</button>
+      <button class="btn-outline btn" onclick="closePaperModal()">キャンセル</button>
+      <button class="btn" onclick="savePaper()">保存</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ====== State ======
+const STORAGE_KEY = 'kampo_paper_writer_v1';
+let state = {
+  papers: [],
+  sections: [
+    {id:'s1', name:'緒言 (Introduction)'},
+    {id:'s2', name:'方法 (Methods)'},
+    {id:'s3', name:'結果 (Results)'},
+    {id:'s4', name:'考察 (Discussion)'},
+    {id:'s5', name:'結論 (Conclusion)'}
+  ],
+  sectionContents: {},
+  activeSection: null,
+  filterTag: null,
+  searchQuery: '',
+  modalTags: [],
+  modalSections: [],
+};
+
+function load(){
+  try{
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if(raw){
+      const data = JSON.parse(raw);
+      Object.assign(state, data);
+    }
+  }catch(e){console.error(e)}
+  if(!state.activeSection && state.sections.length) state.activeSection = state.sections[0].id;
+}
+function save(){
+  localStorage.setItem(STORAGE_KEY, JSON.stringify({
+    papers: state.papers,
+    sections: state.sections,
+    sectionContents: state.sectionContents,
+    activeSection: state.activeSection,
+  }));
+}
+
+// ====== Navigation ======
+document.querySelectorAll('.nav-btn').forEach(b=>{
+  b.onclick = ()=>{
+    document.querySelectorAll('.nav-btn').forEach(x=>x.classList.remove('active'));
+    document.querySelectorAll('.view').forEach(x=>x.classList.remove('active'));
+    b.classList.add('active');
+    document.getElementById('view-'+b.dataset.view).classList.add('active');
+    if(b.dataset.view==='writing') renderWriting();
+    if(b.dataset.view==='export') renderExport();
+  };
+});
+
+// ====== Papers View ======
+function renderPapers(){
+  const grid = document.getElementById('papers-grid');
+  const q = state.searchQuery.toLowerCase();
+  let papers = state.papers.filter(p=>{
+    if(state.filterTag && !(p.tags||[]).includes(state.filterTag)) return false;
+    if(!q) return true;
+    return (p.title||'').toLowerCase().includes(q) ||
+           (p.authors||'').toLowerCase().includes(q) ||
+           (p.summary||'').toLowerCase().includes(q);
+  });
+
+  if(papers.length === 0){
+    grid.innerHTML = `<div class="empty" style="grid-column:1/-1">
+      <div class="ornament">— 〇 —</div>
+      <p>論文メモがまだありません。「+ 論文を追加」から始めましょう。</p>
+    </div>`;
+  }else{
+    grid.innerHTML = papers.map(p=>{
+      const refNum = state.papers.indexOf(p)+1;
+      return `<div class="paper-card" onclick="openPaperModal('${p.id}')">
+        <div class="ref-num">#${refNum}</div>
+        <h3>${escapeHtml(p.title||'(無題)')}</h3>
+        <div class="authors">${escapeHtml(p.authors||'')} ${p.year?`(${p.year})`:''}</div>
+        <div class="journal">${escapeHtml([p.journal,p.volume,p.pages].filter(Boolean).join('. '))}</div>
+        ${p.summary?`<div class="summary">${escapeHtml(p.summary)}</div>`:''}
+        ${(p.tags&&p.tags.length)?`<div class="tags-list">${p.tags.map(t=>`<span class="tag">${escapeHtml(t)}</span>`).join('')}</div>`:''}
+      </div>`;
+    }).join('');
+  }
+
+  // Stats
+  document.getElementById('stat-count').textContent = state.papers.length;
+  const allTags = new Set();
+  state.papers.forEach(p=>(p.tags||[]).forEach(t=>allTags.add(t)));
+  document.getElementById('stat-tags').textContent = allTags.size;
+  document.getElementById('stat-sections').textContent = state.sections.length;
+
+  // Tag filter
+  const tagBox = document.getElementById('tag-filter');
+  if(allTags.size === 0){
+    tagBox.innerHTML = '';
+  }else{
+    tagBox.innerHTML = `<span class="tag ${state.filterTag===null?'active':''}" onclick="setFilter(null)">すべて</span>` +
+      [...allTags].sort().map(t=>`<span class="tag ${state.filterTag===t?'active':''}" onclick="setFilter('${escapeAttr(t)}')">${escapeHtml(t)}</span>`).join('');
+  }
+}
+function setFilter(t){state.filterTag = t; renderPapers();}
+document.getElementById('search').oninput = (e)=>{state.searchQuery=e.target.value; renderPapers();};
+
+// ====== Paper Modal ======
+function openPaperModal(id){
+  document.getElementById('paper-modal').classList.add('show');
+  if(id){
+    const p = state.papers.find(x=>x.id===id);
+    if(!p) return;
+    document.getElementById('modal-title').textContent = '論文を編集';
+    document.getElementById('paper-id').value = p.id;
+    document.getElementById('f-title').value = p.title||'';
+    document.getElementById('f-authors').value = p.authors||'';
+    document.getElementById('f-year').value = p.year||'';
+    document.getElementById('f-journal').value = p.journal||'';
+    document.getElementById('f-volume').value = p.volume||'';
+    document.getElementById('f-pages').value = p.pages||'';
+    document.getElementById('f-doi').value = p.doi||'';
+    document.getElementById('f-pmid').value = p.pmid||'';
+    document.getElementById('f-summary').value = p.summary||'';
+    document.getElementById('f-notes').value = p.notes||'';
+    state.modalTags = [...(p.tags||[])];
+    state.modalSections = [...(p.sections||[])];
+    document.getElementById('delete-btn').style.display='inline-block';
+  }else{
+    document.getElementById('modal-title').textContent = '論文を追加';
+    document.getElementById('paper-id').value = '';
+    ['f-title','f-authors','f-year','f-journal','f-volume','f-pages','f-doi','f-pmid','f-summary','f-notes'].forEach(id=>document.getElementById(id).value='');
+    state.modalTags = [];
+    state.modalSections = [];
+    document.getElementById('delete-btn').style.display='none';
+  }
+  renderModalTags();
+  renderModalSections();
+}
+function closePaperModal(){
+  document.getElementById('paper-modal').classList.remove('show');
+}
+function renderModalTags(){
+  const container = document.getElementById('tag-input-container');
+  const input = document.getElementById('f-tag-input');
+  // remove all tag elements, keep input
+  [...container.querySelectorAll('.tag')].forEach(t=>t.remove());
+  state.modalTags.forEach((t,i)=>{
+    const span = document.createElement('span');
+    span.className = 'tag';
+    span.innerHTML = `${escapeHtml(t)} <span class="x" onclick="removeModalTag(${i})">×</span>`;
+    container.insertBefore(span, input);
+  });
+}
+function removeModalTag(i){state.modalTags.splice(i,1); renderModalTags();}
+document.getElementById('f-tag-input').onkeydown = (e)=>{
+  if(e.key === 'Enter' || e.key === ','){
+    e.preventDefault();
+    const v = e.target.value.trim();
+    if(v && !state.modalTags.includes(v)){
+      state.modalTags.push(v);
+      renderModalTags();
+    }
+    e.target.value = '';
+  }else if(e.key === 'Backspace' && !e.target.value && state.modalTags.length){
+    state.modalTags.pop();
+    renderModalTags();
+  }
+};
+function renderModalSections(){
+  const chips = document.getElementById('section-chips');
+  chips.innerHTML = state.sections.map(s=>{
+    const active = state.modalSections.includes(s.id);
+    return `<span class="section-chip ${active?'active':''}" onclick="toggleModalSection('${s.id}')">${escapeHtml(s.name)}</span>`;
+  }).join('');
+}
+function toggleModalSection(id){
+  const i = state.modalSections.indexOf(id);
+  if(i>=0) state.modalSections.splice(i,1);
+  else state.modalSections.push(id);
+  renderModalSections();
+}
+function savePaper(){
+  const title = document.getElementById('f-title').value.trim();
+  const summary = document.getElementById('f-summary').value.trim();
+  if(!title){alert('タイトルを入力してください'); return;}
+  const id = document.getElementById('paper-id').value || ('p'+Date.now());
+  const paper = {
+    id,
+    title,
+    authors: document.getElementById('f-authors').value.trim(),
+    year: document.getElementById('f-year').value.trim(),
+    journal: document.getElementById('f-journal').value.trim(),
+    volume: document.getElementById('f-volume').value.trim(),
+    pages: document.getElementById('f-pages').value.trim(),
+    doi: document.getElementById('f-doi').value.trim(),
+    pmid: document.getElementById('f-pmid').value.trim(),
+    summary,
+    notes: document.getElementById('f-notes').value.trim(),
+    tags: [...state.modalTags],
+    sections: [...state.modalSections],
+  };
+  const existingIdx = state.papers.findIndex(p=>p.id===id);
+  if(existingIdx>=0) state.papers[existingIdx] = paper;
+  else state.papers.push(paper);
+  save();
+  renderPapers();
+  closePaperModal();
+}
+function deletePaper(){
+  const id = document.getElementById('paper-id').value;
+  if(!id) return;
+  if(!confirm('この論文メモを削除しますか?')) return;
+  state.papers = state.papers.filter(p=>p.id!==id);
+  save();
+  renderPapers();
+  closePaperModal();
+}
+
+// ====== Writing View ======
+function renderWriting(){
+  const list = document.getElementById('sections-list');
+  list.innerHTML = state.sections.map(s=>{
+    const active = state.activeSection===s.id;
+    return `<div class="section-item ${active?'active':''}" onclick="selectSection('${s.id}')">
+      <span>${escapeHtml(s.name)}</span>
+      <span class="del" onclick="event.stopPropagation();deleteSection('${s.id}')">×</span>
+    </div>`;
+  }).join('');
+  if(state.activeSection){
+    const s = state.sections.find(x=>x.id===state.activeSection);
+    document.getElementById('current-section-title').textContent = s ? s.name : 'セクションを選択';
+    document.getElementById('editor').value = state.sectionContents[state.activeSection] || '';
+    updateWordCount();
+  }
+  renderRefsPanel();
+}
+function selectSection(id){
+  state.activeSection = id;
+  renderWriting();
+  save();
+}
+function addSection(){
+  const input = document.getElementById('new-section');
+  const name = input.value.trim();
+  if(!name) return;
+  const id = 's'+Date.now();
+  state.sections.push({id,name});
+  input.value = '';
+  if(!state.activeSection) state.activeSection = id;
+  save();
+  renderWriting();
+  renderPapers();
+}
+function deleteSection(id){
+  if(!confirm('このセクションと内容を削除しますか?')) return;
+  state.sections = state.sections.filter(s=>s.id!==id);
+  delete state.sectionContents[id];
+  state.papers.forEach(p=>{ if(p.sections) p.sections = p.sections.filter(x=>x!==id); });
+  if(state.activeSection===id) state.activeSection = state.sections[0]?.id || null;
+  save();
+  renderWriting();
+  renderPapers();
+}
+document.getElementById('new-section').onkeydown = (e)=>{if(e.key==='Enter')addSection()};
+document.getElementById('editor').oninput = (e)=>{
+  if(!state.activeSection) return;
+  state.sectionContents[state.activeSection] = e.target.value;
+  save();
+  updateWordCount();
+};
+function updateWordCount(){
+  const text = document.getElementById('editor').value;
+  document.getElementById('word-count').textContent = `${text.length} characters / ${text.split(/\s+/).filter(Boolean).length} words`;
+}
+function renderRefsPanel(){
+  const list = document.getElementById('refs-list');
+  const q = document.getElementById('ref-search').value.toLowerCase();
+  // show papers assigned to active section first, then all
+  let papers = state.papers;
+  if(state.activeSection){
+    papers = [...state.papers].sort((a,b)=>{
+      const aIn = (a.sections||[]).includes(state.activeSection);
+      const bIn = (b.sections||[]).includes(state.activeSection);
+      if(aIn && !bIn) return -1;
+      if(!aIn && bIn) return 1;
+      return 0;
+    });
+  }
+  if(q){
+    papers = papers.filter(p=>
+      (p.title||'').toLowerCase().includes(q) ||
+      (p.authors||'').toLowerCase().includes(q) ||
+      (p.summary||'').toLowerCase().includes(q)
+    );
+  }
+  if(papers.length === 0){
+    list.innerHTML = '<p style="font-size:12px;color:var(--ink-muted);font-style:italic">論文がありません</p>';
+    return;
+  }
+  list.innerHTML = papers.map(p=>{
+    const refNo = state.papers.indexOf(p)+1;
+    const inSection = state.activeSection && (p.sections||[]).includes(state.activeSection);
+    return `<div class="ref-item" style="${inSection?'border-left-color:var(--accent)':''}">
+      <button class="insert-btn" onclick="insertCitation(${refNo})">挿入</button>
+      <div class="ref-title"><span class="ref-no">[${refNo}]</span>${escapeHtml(truncate(p.title,60))}</div>
+      <div class="ref-meta">${escapeHtml(p.authors||'')} ${p.year?`(${p.year})`:''}</div>
+    </div>`;
+  }).join('');
+}
+document.getElementById('ref-search').oninput = renderRefsPanel;
+function insertCitation(n){
+  const editor = document.getElementById('editor');
+  const pos = editor.selectionStart;
+  const text = editor.value;
+  editor.value = text.slice(0,pos) + `[${n}]` + text.slice(pos);
+  editor.focus();
+  editor.selectionStart = editor.selectionEnd = pos + `[${n}]`.length;
+  if(state.activeSection){
+    state.sectionContents[state.activeSection] = editor.value;
+    save();
+    updateWordCount();
+  }
+}
+
+// ====== Export View ======
+function renderExport(){
+  const c = document.getElementById('export-content');
+  let html = '<h2>論文ドラフト</h2>';
+  state.sections.forEach(s=>{
+    const body = state.sectionContents[s.id] || '';
+    html += `<h3>${escapeHtml(s.name)}</h3>`;
+    if(body){
+      const paragraphs = body.split(/\n\n+/);
+      paragraphs.forEach(par=>{
+        const formatted = escapeHtml(par).replace(/\[(\d+)\]/g, '<span class="cite">[$1]</span>').replace(/\n/g,'<br>');
+        html += `<p>${formatted}</p>`;
+      });
+    }else{
+      html += `<p style="color:var(--ink-muted);font-style:italic">(未執筆)</p>`;
+    }
+  });
+  // Reference list
+  if(state.papers.length){
+    html += '<div class="ref-list"><h3>参考文献</h3><ol>';
+    state.papers.forEach(p=>{
+      html += `<li>${formatVancouver(p)}</li>`;
+    });
+    html += '</ol></div>';
+  }
+  c.innerHTML = html;
+}
+function formatVancouver(p){
+  let s = '';
+  if(p.authors) s += escapeHtml(p.authors) + '. ';
+  if(p.title) s += escapeHtml(p.title) + '. ';
+  if(p.journal) s += `<i>${escapeHtml(p.journal)}</i>. `;
+  if(p.year) s += escapeHtml(p.year) + ';';
+  if(p.volume) s += escapeHtml(p.volume);
+  if(p.pages) s += ':' + escapeHtml(p.pages);
+  if(p.year||p.volume||p.pages) s = s.replace(/;$/,'.') + '. ';
+  if(p.doi) s += `doi:${escapeHtml(p.doi)}. `;
+  if(p.pmid) s += `PMID:${escapeHtml(p.pmid)}.`;
+  return s;
+}
+function exportMarkdown(){
+  let md = '# 論文ドラフト\n\n';
+  state.sections.forEach(s=>{
+    md += `## ${s.name}\n\n`;
+    md += (state.sectionContents[s.id] || '*(未執筆)*') + '\n\n';
+  });
+  if(state.papers.length){
+    md += '## 参考文献\n\n';
+    state.papers.forEach((p,i)=>{
+      md += `${i+1}. ${plainVancouver(p)}\n`;
+    });
+  }
+  downloadFile(md, 'draft.md', 'text/markdown');
+}
+function exportPlain(){
+  let t = '';
+  state.sections.forEach(s=>{
+    t += `■ ${s.name}\n\n`;
+    t += (state.sectionContents[s.id] || '(未執筆)') + '\n\n';
+  });
+  if(state.papers.length){
+    t += '■ 参考文献\n\n';
+    state.papers.forEach((p,i)=>{
+      t += `${i+1}. ${plainVancouver(p)}\n`;
+    });
+  }
+  downloadFile(t, 'draft.txt', 'text/plain');
+}
+function exportBibtex(){
+  let b = '';
+  state.papers.forEach((p,i)=>{
+    const key = (p.authors||'ref').split(/[\s,]/)[0].replace(/[^A-Za-z]/g,'') + (p.year||'') + (i+1);
+    b += `@article{${key},\n`;
+    if(p.authors) b += `  author = {${p.authors}},\n`;
+    if(p.title) b += `  title = {${p.title}},\n`;
+    if(p.journal) b += `  journal = {${p.journal}},\n`;
+    if(p.year) b += `  year = {${p.year}},\n`;
+    if(p.volume) b += `  volume = {${p.volume}},\n`;
+    if(p.pages) b += `  pages = {${p.pages}},\n`;
+    if(p.doi) b += `  doi = {${p.doi}},\n`;
+    b += `}\n\n`;
+  });
+  downloadFile(b, 'references.bib', 'text/plain');
+}
+function exportVancouver(){
+  let t = '参考文献\n\n';
+  state.papers.forEach((p,i)=>{
+    t += `${i+1}. ${plainVancouver(p)}\n`;
+  });
+  downloadFile(t, 'references.txt', 'text/plain');
+}
+function plainVancouver(p){
+  let s = '';
+  if(p.authors) s += p.authors + '. ';
+  if(p.title) s += p.title + '. ';
+  if(p.journal) s += p.journal + '. ';
+  if(p.year) s += p.year + ';';
+  if(p.volume) s += p.volume;
+  if(p.pages) s += ':' + p.pages;
+  if(p.year||p.volume||p.pages) s = s.replace(/;$/,'.') + '. ';
+  if(p.doi) s += `doi:${p.doi}. `;
+  if(p.pmid) s += `PMID:${p.pmid}.`;
+  return s;
+}
+function downloadFile(content, name, type){
+  const blob = new Blob([content], {type});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = name;
+  a.click();
+}
+
+// ====== Import / Export Data ======
+function exportData(){
+  const data = JSON.stringify({
+    papers: state.papers,
+    sections: state.sections,
+    sectionContents: state.sectionContents,
+    exportedAt: new Date().toISOString(),
+  }, null, 2);
+  downloadFile(data, `kampo_writer_backup_${Date.now()}.json`, 'application/json');
+}
+function importData(e){
+  const f = e.target.files[0];
+  if(!f) return;
+  const reader = new FileReader();
+  reader.onload = ev=>{
+    try{
+      const data = JSON.parse(ev.target.result);
+      if(!confirm('現在のデータを上書きしますか?')) return;
+      if(data.papers) state.papers = data.papers;
+      if(data.sections) state.sections = data.sections;
+      if(data.sectionContents) state.sectionContents = data.sectionContents;
+      save();
+      renderPapers();
+      alert('インポートしました');
+    }catch(err){alert('読み込みに失敗しました: '+err.message)}
+  };
+  reader.readAsText(f);
+}
+
+// ====== Utils ======
+function escapeHtml(s){
+  if(!s) return '';
+  return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+function escapeAttr(s){return escapeHtml(s).replace(/'/g,'&#39;');}
+function truncate(s,n){if(!s)return '';return s.length>n?s.slice(0,n)+'…':s;}
+
+// ====== Init ======
+load();
+renderPapers();
+</script>
+
+</body>
+</html>
