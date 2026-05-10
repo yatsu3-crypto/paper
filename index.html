@@ -729,6 +729,7 @@ body.readonly .readonly-banner{display:block}
   </div>
   <div class="toolbar">
     <button class="btn" onclick="openPaperModal()">+ 論文を追加</button>
+    <button class="btn" onclick="openAiImportModal()" style="background:var(--accent)">✦ テキストから自動入力</button>
     <input type="text" class="search-box" id="search" placeholder="タイトル・著者・要点で検索…">
     <button class="btn-outline btn" onclick="openShareModal()">📱 iPhoneで見る</button>
     <button class="btn-outline btn" onclick="exportData()">バックアップ</button>
@@ -776,6 +777,27 @@ body.readonly .readonly-banner{display:block}
 </div>
 
 </main>
+
+<!-- === AI Import Modal === -->
+<div class="modal-bg" id="ai-import-modal">
+  <div class="modal" style="max-width:680px">
+    <button class="close-btn" onclick="closeAiImportModal()">×</button>
+    <h2><span class="accent">|</span> テキストから自動入力</h2>
+    <div class="field">
+      <label>論文情報・要約・抄録などを貼り付け</label>
+      <textarea id="ai-input" rows="10" placeholder="例:&#10;・PubMedの抄録&#10;・論文の書誌情報+要点メモ&#10;・自分でまとめた読書メモ&#10;&#10;なんでも貼り付けてOK。Claudeが構造化します。"></textarea>
+    </div>
+    <div class="field">
+      <label>追加の指示(任意)</label>
+      <input type="text" id="ai-hint" placeholder="例: 痒みの分子機序に注目してタグ付け">
+    </div>
+    <div id="ai-status" style="font-size:12px;color:var(--ink-muted);min-height:18px;margin-bottom:10px"></div>
+    <div class="modal-actions">
+      <button class="btn-outline btn" onclick="closeAiImportModal()">キャンセル</button>
+      <button class="btn" id="ai-submit-btn" onclick="aiImportSubmit()">解析して入力</button>
+    </div>
+  </div>
+</div>
 
 <!-- === Share Modal === -->
 <div class="modal-bg" id="share-modal">
@@ -1386,16 +1408,144 @@ function importData(e){
   reader.onload = ev=>{
     try{
       const data = JSON.parse(ev.target.result);
-      if(!confirm('現在のデータを上書きしますか?')) return;
-      if(data.papers) state.papers = data.papers;
-      if(data.sections) state.sections = data.sections;
-      if(data.sectionContents) state.sectionContents = data.sectionContents;
-      save();
-      renderPapers();
-      alert('インポートしました');
+      const newPapers = data.papers || [];
+      const newSections = data.sections || [];
+      const newContents = data.sectionContents || {};
+
+      const mode = prompt(
+        `インポート方法を選択してください:\n\n` +
+        `1 = 追記(既存データを残して新規論文だけ追加)\n` +
+        `2 = 上書き(すべて置き換え)\n` +
+        `3 = キャンセル\n\n` +
+        `※ 追記時、同じDOI/PMIDの論文は更新されます`,
+        '1'
+      );
+
+      if(mode === '1'){
+        // Merge: keep existing, add/update by DOI or PMID or id
+        let added = 0, updated = 0;
+        newPapers.forEach(np => {
+          let existingIdx = -1;
+          if(np.doi) existingIdx = state.papers.findIndex(p => p.doi && p.doi === np.doi);
+          if(existingIdx < 0 && np.pmid) existingIdx = state.papers.findIndex(p => p.pmid && p.pmid === np.pmid);
+          if(existingIdx < 0) existingIdx = state.papers.findIndex(p => p.id === np.id);
+          if(existingIdx >= 0){
+            // Preserve original id
+            np.id = state.papers[existingIdx].id;
+            state.papers[existingIdx] = np;
+            updated++;
+          }else{
+            // Generate fresh id to avoid collision
+            if(!np.id || state.papers.some(p => p.id === np.id)){
+              np.id = 'p' + Date.now() + '_' + Math.random().toString(36).slice(2,7);
+            }
+            state.papers.push(np);
+            added++;
+          }
+        });
+        save();
+        renderPapers();
+        alert(`追記しました: ${added}件追加 / ${updated}件更新`);
+      }else if(mode === '2'){
+        if(!confirm('現在のデータをすべて上書きします。よろしいですか?')) return;
+        state.papers = newPapers;
+        if(newSections.length) state.sections = newSections;
+        state.sectionContents = newContents;
+        save();
+        renderPapers();
+        alert('上書きしました');
+      }
     }catch(err){alert('読み込みに失敗しました: '+err.message)}
   };
   reader.readAsText(f);
+  e.target.value = ''; // allow re-import same file
+}
+
+// ====== AI Import (Claude API) ======
+function openAiImportModal(){
+  document.getElementById('ai-import-modal').classList.add('show');
+  document.getElementById('ai-input').value = '';
+  document.getElementById('ai-hint').value = '';
+  document.getElementById('ai-status').textContent = '';
+  document.getElementById('ai-submit-btn').disabled = false;
+}
+function closeAiImportModal(){
+  document.getElementById('ai-import-modal').classList.remove('show');
+}
+async function aiImportSubmit(){
+  const text = document.getElementById('ai-input').value.trim();
+  const hint = document.getElementById('ai-hint').value.trim();
+  if(!text){alert('テキストを貼り付けてください'); return;}
+
+  const btn = document.getElementById('ai-submit-btn');
+  const statusEl = document.getElementById('ai-status');
+  btn.disabled = true;
+  statusEl.textContent = '解析中…(10-30秒)';
+
+  const prompt = `以下のテキストから論文情報を抽出して、JSONで返してください。
+不明なフィールドは空文字列にしてください。タグは漢方処方名・疾患名・分子メカニズム・研究手法など、後で論文を分類しやすいキーワードを5-10個ほど日本語で。
+要点(summary)は、本文中の重要知見・作用機序・結果などを構造化した形でまとめてください(箇条書きや見出しを使ってOK)。
+
+返答は必ず以下の形式のJSONのみ。前後に余計な説明やMarkdownコードフェンスは絶対に付けないこと。
+
+{
+  "title": "",
+  "authors": "",
+  "year": "",
+  "journal": "",
+  "volume": "",
+  "pages": "",
+  "doi": "",
+  "pmid": "",
+  "summary": "",
+  "notes": "",
+  "tags": []
+}
+
+${hint ? `追加の指示: ${hint}\n\n` : ''}---テキスト---
+${text}`;
+
+  try{
+    const response = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({
+        model: "claude-sonnet-4-20250514",
+        max_tokens: 2000,
+        messages: [{role: "user", content: prompt}]
+      })
+    });
+    if(!response.ok){
+      throw new Error(`API ${response.status}`);
+    }
+    const data = await response.json();
+    let resultText = data.content
+      .filter(b => b.type === 'text')
+      .map(b => b.text)
+      .join('\n');
+    // Strip markdown fences if present
+    resultText = resultText.replace(/```json\s*|```/g, '').trim();
+    const parsed = JSON.parse(resultText);
+
+    // Fill the paper modal with parsed data
+    closeAiImportModal();
+    openPaperModal();
+    document.getElementById('f-title').value = parsed.title || '';
+    document.getElementById('f-authors').value = parsed.authors || '';
+    document.getElementById('f-year').value = parsed.year || '';
+    document.getElementById('f-journal').value = parsed.journal || '';
+    document.getElementById('f-volume').value = parsed.volume || '';
+    document.getElementById('f-pages').value = parsed.pages || '';
+    document.getElementById('f-doi').value = parsed.doi || '';
+    document.getElementById('f-pmid').value = parsed.pmid || '';
+    document.getElementById('f-summary').value = parsed.summary || '';
+    document.getElementById('f-notes').value = parsed.notes || '';
+    state.modalTags = Array.isArray(parsed.tags) ? parsed.tags : [];
+    renderModalTags();
+  }catch(err){
+    statusEl.textContent = 'エラー: ' + err.message + ' (もう一度お試しください)';
+    btn.disabled = false;
+  }
 }
 
 // ====== Utils ======
