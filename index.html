@@ -7,6 +7,8 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+JP:wght@400;500;700&family=Shippori+Mincho:wght@500;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/lz-string@1.5.0/libs/lz-string.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
 <style>
 :root{
   --bg:#f5f1e8;
@@ -611,14 +613,98 @@ textarea{resize:vertical;min-height:80px;line-height:1.8}
   .refs-panel{display:none}
 }
 @media (max-width:768px){
-  .writing-layout{grid-template-columns:1fr}
-  .sections-panel{order:1}
-  nav button{padding:8px 10px;font-size:12px}
+  header{padding:14px 16px;flex-wrap:wrap;gap:10px}
+  .logo h1{font-size:18px}
+  .logo .sub{display:none}
+  main{padding:16px 14px}
+  nav{width:100%;justify-content:space-around}
+  nav button{padding:8px 10px;font-size:13px;flex:1}
+  .writing-layout{grid-template-columns:1fr;gap:14px}
+  .sections-panel{order:1;padding:14px}
+  .editor-panel{padding:20px 18px}
+  .editor{font-size:16px;min-height:300px}
+  .refs-panel{display:block;order:3;max-height:none}
   .field-row,.field-row-3{grid-template-columns:1fr}
+  .modal{padding:22px 18px}
+  .modal h2{font-size:17px}
+  .papers-grid{grid-template-columns:1fr;gap:12px}
+  .paper-card{padding:14px 16px}
+  .paper-card h3{font-size:14px}
+  .toolbar{gap:8px}
+  .toolbar .btn{padding:8px 14px;font-size:12px;flex:1;min-width:auto}
+  .search-box{width:100%;max-width:none;flex-basis:100%}
+  .stats{flex-wrap:wrap;gap:14px;font-size:11px}
+  .export-content{padding:20px 18px}
+  .export-content h2{font-size:18px}
+  .export-content h3{font-size:15px}
+  /* Touch targets */
+  .section-item{padding:12px}
+  .section-item .del{opacity:0.5;font-size:18px;padding:0 6px}
+  .ref-item{padding:12px}
+  .ref-item .insert-btn{opacity:1;font-size:11px;padding:4px 10px}
+  .tag{padding:5px 12px;font-size:12px}
 }
+@media (max-width:480px){
+  .logo h1{font-size:16px}
+  header{padding:12px 14px}
+}
+
+/* === Read-only mode (for iPhone viewing) === */
+body.readonly .toolbar,
+body.readonly .add-section,
+body.readonly .close-btn,
+body.readonly .modal-actions,
+body.readonly .section-item .del,
+body.readonly .ref-item .insert-btn,
+body.readonly .tag-input-container input{display:none !important}
+body.readonly .editor{pointer-events:none;background:transparent}
+body.readonly input,body.readonly textarea,body.readonly select{
+  pointer-events:none;background:transparent;border-color:transparent;
+}
+.readonly-banner{
+  display:none;
+  background:var(--accent);
+  color:var(--paper);
+  padding:8px 16px;
+  text-align:center;
+  font-size:12px;
+  letter-spacing:0.1em;
+  font-weight:500;
+}
+body.readonly .readonly-banner{display:block}
+
+/* === Share Modal === */
+.share-content{margin-top:10px}
+.share-content .qr-wrap{
+  display:flex;
+  justify-content:center;
+  padding:20px;
+  background:white;
+  margin:14px 0;
+}
+.share-content .url-box{
+  background:var(--bg);
+  border:1px solid var(--line);
+  padding:10px 12px;
+  font-family:var(--mono);
+  font-size:11px;
+  word-break:break-all;
+  max-height:80px;
+  overflow-y:auto;
+  margin-bottom:10px;
+}
+.share-content .info{
+  font-size:12px;
+  color:var(--ink-muted);
+  line-height:1.7;
+  margin-bottom:10px;
+}
+.share-content .info strong{color:var(--ink)}
 </style>
 </head>
 <body>
+
+<div class="readonly-banner">📱 閲覧モード ・ 編集はパソコンで行ってください</div>
 
 <header>
   <div class="logo">
@@ -644,6 +730,7 @@ textarea{resize:vertical;min-height:80px;line-height:1.8}
   <div class="toolbar">
     <button class="btn" onclick="openPaperModal()">+ 論文を追加</button>
     <input type="text" class="search-box" id="search" placeholder="タイトル・著者・要点で検索…">
+    <button class="btn-outline btn" onclick="openShareModal()">📱 iPhoneで見る</button>
     <button class="btn-outline btn" onclick="exportData()">バックアップ</button>
     <button class="btn-outline btn" onclick="document.getElementById('import-file').click()">インポート</button>
     <input type="file" id="import-file" style="display:none" accept=".json" onchange="importData(event)">
@@ -689,6 +776,24 @@ textarea{resize:vertical;min-height:80px;line-height:1.8}
 </div>
 
 </main>
+
+<!-- === Share Modal === -->
+<div class="modal-bg" id="share-modal">
+  <div class="modal" style="max-width:520px">
+    <button class="close-btn" onclick="closeShareModal()">×</button>
+    <h2><span class="accent">|</span> iPhoneで閲覧</h2>
+    <div class="share-content">
+      <p class="info">下記のQRコードをiPhoneのカメラで読み取ると、現在のデータがそのままiPhoneで閲覧できます (<strong>閲覧専用</strong>・データはURLに含まれます)。</p>
+      <div class="qr-wrap" id="qr-wrap"></div>
+      <div class="url-box" id="share-url"></div>
+      <div style="display:flex;gap:8px">
+        <button class="btn btn-sm" onclick="copyShareUrl()" style="flex:1">URLをコピー</button>
+        <button class="btn-outline btn btn-sm" onclick="openShareUrl()" style="flex:1">このタブで開く</button>
+      </div>
+      <p class="info" style="margin-top:14px;font-size:11px">※ データ量が多いとQRが読みづらくなります。その場合はURLコピーやメール送信を使ってください。</p>
+    </div>
+  </div>
+</div>
 
 <!-- === Paper Modal === -->
 <div class="modal-bg" id="paper-modal">
@@ -781,6 +886,21 @@ let state = {
 };
 
 function load(){
+  // Check if we're in viewing mode via URL hash
+  if(window.location.hash.startsWith('#view=')){
+    try{
+      const encoded = window.location.hash.substring(6);
+      const decoded = LZString.decompressFromEncodedURIComponent(encoded);
+      if(decoded){
+        const data = JSON.parse(decoded);
+        Object.assign(state, data);
+        state.isReadonly = true;
+        document.body.classList.add('readonly');
+        if(!state.activeSection && state.sections.length) state.activeSection = state.sections[0].id;
+        return;
+      }
+    }catch(e){console.error('URL load failed:',e)}
+  }
   try{
     const raw = localStorage.getItem(STORAGE_KEY);
     if(raw){
@@ -791,6 +911,7 @@ function load(){
   if(!state.activeSection && state.sections.length) state.activeSection = state.sections[0].id;
 }
 function save(){
+  if(state.isReadonly) return;
   localStorage.setItem(STORAGE_KEY, JSON.stringify({
     papers: state.papers,
     sections: state.sections,
@@ -798,6 +919,56 @@ function save(){
     activeSection: state.activeSection,
   }));
 }
+
+// ====== Share / iPhone Viewing ======
+function buildShareUrl(){
+  const data = {
+    papers: state.papers,
+    sections: state.sections,
+    sectionContents: state.sectionContents,
+  };
+  const json = JSON.stringify(data);
+  const compressed = LZString.compressToEncodedURIComponent(json);
+  const baseUrl = window.location.href.split('#')[0];
+  return baseUrl + '#view=' + compressed;
+}
+function openShareModal(){
+  const url = buildShareUrl();
+  document.getElementById('share-url').textContent = url;
+  document.getElementById('share-modal').classList.add('show');
+  // Generate QR
+  const wrap = document.getElementById('qr-wrap');
+  wrap.innerHTML = '';
+  const canvas = document.createElement('canvas');
+  wrap.appendChild(canvas);
+  QRCode.toCanvas(canvas, url, {
+    width: 260,
+    margin: 1,
+    errorCorrectionLevel: 'L',
+    color: {dark:'#1a1a1a', light:'#ffffff'}
+  }, function(err){
+    if(err){
+      wrap.innerHTML = `<p style="color:var(--accent);text-align:center;padding:20px">QR生成失敗: データ量が多すぎます。<br>URLコピーかメール送信をお使いください。</p>`;
+    }
+  });
+}
+function closeShareModal(){document.getElementById('share-modal').classList.remove('show')}
+function copyShareUrl(){
+  const url = document.getElementById('share-url').textContent;
+  navigator.clipboard.writeText(url).then(()=>{
+    alert('URLをコピーしました');
+  }).catch(()=>{
+    // Fallback
+    const ta = document.createElement('textarea');
+    ta.value = url;
+    document.body.appendChild(ta);
+    ta.select();
+    document.execCommand('copy');
+    document.body.removeChild(ta);
+    alert('URLをコピーしました');
+  });
+}
+function openShareUrl(){window.open(document.getElementById('share-url').textContent,'_blank')}
 
 // ====== Navigation ======
 document.querySelectorAll('.nav-btn').forEach(b=>{
@@ -863,6 +1034,7 @@ document.getElementById('search').oninput = (e)=>{state.searchQuery=e.target.val
 
 // ====== Paper Modal ======
 function openPaperModal(id){
+  if(state.isReadonly && !id) return;
   document.getElementById('paper-modal').classList.add('show');
   if(id){
     const p = state.papers.find(x=>x.id===id);
@@ -892,6 +1064,12 @@ function openPaperModal(id){
   }
   renderModalTags();
   renderModalSections();
+  // In readonly mode, show only close button
+  if(state.isReadonly){
+    document.querySelector('#paper-modal .modal-actions').innerHTML =
+      '<button class="btn-outline btn" onclick="closePaperModal()">閉じる</button>';
+    document.querySelector('#paper-modal .close-btn').style.display='block';
+  }
 }
 function closePaperModal(){
   document.getElementById('paper-modal').classList.remove('show');
